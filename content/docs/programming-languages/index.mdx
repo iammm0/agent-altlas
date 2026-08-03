@@ -40,3 +40,62 @@ description: 面向 AI Agent 工程的多语言学习地图：TypeScript 负责�
 每个语言页都按同一条线展开：先说明它在 Agent 工程中的位置，再讲基础特性、高级特性、工程生态、适用边界和延伸阅读。目标不是让读者背语法，而是让读者能读懂开源 Agent 项目、拆清系统边界、写出可维护的第一版实现。
 
 内容主要参考各语言和工具的官方文档，包括 [TypeScript Handbook](https://www.typescriptlang.org/docs/handbook/intro.html)、[Node.js Learn](https://nodejs.org/learn)、[Python Tutorial](https://docs.python.org/3/tutorial/index.html)、[Go Documentation](https://go.dev/doc/) 和 [The Rust Programming Language](https://doc.rust-lang.org/book/)。
+
+## 语言不是能力替代品
+
+语言选型不能替代系统设计。Agent 项目里经常出现两种误判：
+
+- 以为换成某种语言，工具调用、状态管理、评测和权限问题就会自动解决。
+- 以为一种语言能覆盖所有层，于是把 UI、RAG、调度、沙箱和批处理都写进同一个运行时。
+
+更稳妥的做法是先划清系统边界，再决定每个边界用什么语言。语言只是承载边界的工具，真正需要被设计的是数据契约、失败语义、部署方式和可观测性。
+
+## 推荐架构切分
+
+```mermaid
+flowchart TD
+  UI[Web UI / Console] --> API[Agent API]
+  API --> ORCH[Tool Orchestration]
+  ORCH --> RAG[RAG and Eval]
+  ORCH --> GW[Tool Gateway]
+  GW --> SANDBOX[Sandbox and Runtime]
+  API --> TRACE[Trace and Observability]
+```
+
+| 模块 | 推荐语言 | 原因 |
+| --- | --- | --- |
+| Web UI / Console | TypeScript | React、Next.js、流式 UI、状态展示和用户确认体验成熟。 |
+| Agent API / 编排 | TypeScript | 与 UI、SDK、工具 schema 和 MCP 生态衔接紧密。 |
+| RAG and Eval | Python | 文档处理、向量检索、评测和数据分析生态完整。 |
+| Tool Gateway | Go | HTTP/gRPC、并发、限流、超时、部署和运维成本低。 |
+| Sandbox and Runtime | Rust | 本地执行、安全边界、解析器、CLI 和跨平台分发更可靠。 |
+| Trace and Observability | TypeScript / Go | 产品侧展示用 TypeScript，采集和服务端管道可用 Go。 |
+
+这不是强制组合，而是一个默认起点。小项目可以只用 TypeScript 或 Python；只有当边界变复杂时，才需要引入 Go 或 Rust。
+
+## 入门路线
+
+1. 用 TypeScript 写一个最小 Agent 产品：聊天界面、工具调用卡片、人工确认、trace 展示。
+2. 用 Python 写一个离线 RAG 或评测脚本：从文档解析到检索、生成报告。
+3. 用 Go 写一个只读工具服务：HTTP API、超时、错误码、日志和指标。
+4. 用 Rust 写一个本地 CLI：读取文件、解析输入、输出结构化 JSON。
+5. 把四者通过明确协议连接，而不是共享隐式全局状态。
+
+如果只能先学一门，优先 TypeScript；如果目标是研究和评测，优先 Python；如果已经在做 infra，再补 Go 和 Rust。
+
+## 评审清单
+
+- 这个模块的主要风险是 UI 状态、模型实验、并发服务还是安全边界。
+- 语言选择是否匹配团队已有能力和部署环境。
+- 是否有跨语言数据契约，例如 JSON Schema、OpenAPI、protobuf 或事件格式。
+- 是否能在本地和 CI 中分别测试每个语言模块。
+- 是否避免让 TypeScript 调 Python、Python 调 Go、Go 调 Rust 形成不可维护的环形依赖。
+- 是否为跨语言错误定义统一语义，而不是各层随意抛异常或打印文本。
+
+## 参考来源
+
+- [TypeScript Handbook](https://www.typescriptlang.org/docs/handbook/intro.html)
+- [Node.js Learn](https://nodejs.org/learn)
+- [Python Tutorial](https://docs.python.org/3/tutorial/index.html)
+- [Go Documentation](https://go.dev/doc/)
+- [The Rust Programming Language](https://doc.rust-lang.org/book/)

@@ -116,7 +116,29 @@ Claude Code 的上下文管理包含 token 预算检查、估算与精算、自�
 | 多 Agent 需要协调者 | Coordinator 分配和综合 | 不做自由混战式多 Agent |
 | 扩展点要分层 | 配置、技能、插件、MCP、Hook | 给不同水平用户不同扩展方式 |
 
-## 反查资料
+## 拆解自己的 Coding Agent
+
+把 Claude Code 的结构迁移到自己的项目时，可以按下面顺序落地：
+
+1. 先实现可观察的 Agent Loop，记录模型调用、工具调用和 stop reason。
+2. 再把高频动作做成专用工具，例如读文件、编辑文件、搜索、运行测试。
+3. 给每个工具标注只读、写入、高风险、是否可并发。
+4. 把 Bash 或 Shell 放进最厚的安全边界里，默认需要确认。
+5. 给上下文建立预算、压缩、缓存和工具结果截断策略。
+6. 最后再考虑 Hook、MCP、子 Agent 和多 Agent。
+
+这个顺序可以避免一开始就堆扩展能力，却没有可回放的核心执行链。
+
+## 风险检查清单
+
+- 是否能证明某次修改来自哪个工具调用。
+- 是否能阻止高风险命令、路径和网络访问。
+- 是否能在工具结果过长时保留关键错误信息。
+- 是否能在模型换版本后复跑核心评测。
+- 是否能让用户看见 diff、命令和测试结果。
+- 是否能在失败时恢复，而不是只能重开一轮对话。
+
+## 参考来源
 
 - [下载《Demystifying Claude Code v1.8》](/resources/books/demystifying-claude-code-v1.8.pdf)
 - [下载《Claude Code Harness Engineering：从入门到实战》](/resources/books/harness-engineering-book.pdf)

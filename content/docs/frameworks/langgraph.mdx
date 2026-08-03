@@ -415,3 +415,13 @@ Agent 在工具调用、反思、重试之间无限循环，是最常见的执�
 ## 小结
 
 LangGraph 最值得学习的不是“怎么把流程画成图”，而是如何把 Agent 的不确定行为拆成可观察、可恢复、可测试的工程结构。只要任务开始出现循环、分支、长时间运行、人工审批和失败恢复，LangGraph 就比手写 Agent loop 更容易维护。
+- 不要把所有逻辑塞进一个节点。
+- 状态结构要尽早稳定。
+- 节点输出要可测试。
+- 图复杂后需要配套 trace 和可视化。
+
+## 参考来源
+
+- [LangGraph Documentation](https://langchain-ai.github.io/langgraph/)
+- [LangGraph JavaScript overview](https://docs.langchain.com/oss/javascript/langgraph/overview)
+- [LangGraph GitHub Repository](https://github.com/langchain-ai/langgraph)
