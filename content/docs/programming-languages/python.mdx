@@ -84,7 +84,7 @@ Pydantic 更适合处理外部输入，因为它能在运行时验证数据是�
 | 装饰器 | 给工具函数加日志、重试、缓存、追踪或权限检查。 |
 | 依赖隔离 | 不同项目、notebook、服务和 worker 不共享全局依赖。 |
 | `pyproject.toml` | 统一项目元数据、构建系统、工具配置和依赖。 |
-| venv / uv / pip | 管理虚拟环境、依赖安装和锁定。 |
+| venv / uv / pip / conda | 管理虚拟环境、依赖安装、二进制依赖和锁定。 |
 | pytest | 写单元测试、fixture、golden tasks 和回归评测。 |
 | ruff | 统一 lint 和格式检查。 |
 | mypy | 给核心协议和共享模块做静态检查。 |
@@ -109,6 +109,77 @@ async def run_eval(case_ids: list[str], concurrency: int = 5) -> list[str]:
 
     return await asyncio.gather(*(run_one(case_id) for case_id in case_ids))
 ```
+
+## 环境与依赖管理
+
+Agent 项目的 Python 环境不能只靠“本机能跑”。RAG、评测和模型实验通常依赖大量第三方包，甚至还会牵涉 CUDA、向量检索库、PDF 解析库和 notebook。如果依赖没有隔离和锁定，同一段评测代码换一台机器就可能得到不同结果。
+
+### uv
+
+`uv` 是现在 Python 工程里很常见的高速包管理工具，适合新 Agent 项目从一开始就使用。它可以管理虚拟环境、安装依赖、生成 lock 文件，并且和 `pyproject.toml` 配合得很好。
+
+一个最小项目可以这样开始：
+
+```bash
+uv init rag-eval
+cd rag-eval
+uv add openai pydantic pytest ruff
+uv run pytest
+```
+
+在 Agent 工程里，`uv` 的价值主要有三点：
+
+- **速度快**：安装 OpenAI SDK、LangChain、LlamaIndex、Pydantic、pytest 等依赖时更适合频繁试验。
+- **可复现**：`uv.lock` 记录具体依赖版本，方便团队成员、CI 和部署环境安装同一组依赖。
+- **入口清晰**：用 `uv run python scripts/eval.py` 或 `uv run pytest` 运行任务，不依赖全局 Python 环境。
+
+对新项目来说，可以优先选择：
+
+```bash
+uv add openai
+uv add --dev pytest ruff mypy
+uv run ruff check .
+```
+
+不要只在 README 里写一串 `pip install ...`。更好的做法是提交 `pyproject.toml` 和 lock 文件，让评测脚本、数据处理脚本和服务入口都能被稳定复现。
+
+### conda
+
+`conda` 更适合科学计算、传统 ML、GPU/CUDA、复杂二进制依赖和 notebook-heavy 的场景。比如项目需要 PyTorch、CUDA、FAISS、OpenCV、音视频处理库或系统级依赖时，conda 往往比纯 pip 环境更省心。
+
+典型环境可以写成 `environment.yml`：
+
+```yaml title="environment.yml"
+name: agent-research
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - pip
+  - numpy
+  - pandas
+  - pip:
+      - openai
+      - pydantic
+```
+
+然后用：
+
+```bash
+conda env create -f environment.yml
+conda activate agent-research
+```
+
+如果项目只是普通 API 调用、RAG、评测和服务脚本，`uv` 通常更轻；如果项目包含 GPU 推理、传统 ML 训练、复杂图像/音视频依赖，`conda` 更稳。两者也可以配合：用 conda 管 Python 版本和系统级二进制依赖，再在该环境里用 uv 管项目依赖和运行命令。
+
+选择时可以记住一个简单规则：
+
+| 场景 | 推荐 |
+| --- | --- |
+| 新建 Agent 服务、RAG、评测脚本、CI | uv |
+| 需要 lock 文件和快速安装 | uv |
+| notebook、数据科学、CUDA、PyTorch、OpenCV、FAISS | conda |
+| 团队里既有研究环境又有工程服务 | conda 管底层环境，uv 管项目依赖 |
 
 ## Agent 工程重点
 
@@ -141,13 +212,15 @@ Python 在 Agent 里最有价值的部分通常不是“写聊天页面”，而
 - RAG pipeline 没有记录 source、chunk id、embedding version 和检索参数。
 - Python 服务直接返回松散 dict，TypeScript 前端只能猜字段。
 - 不锁依赖版本，导致换机器后评测结果或解析行为变化。
+- 把 uv、pip、conda 混着用却不写清边界，导致 notebook、评测脚本和服务环境安装出三套依赖。
 
 ## 学习路径
 
 1. 先读官方 [Python Tutorial](https://docs.python.org/3/tutorial/index.html)，掌握函数、模块、异常、类和标准库基础。
 2. 读 [asyncio](https://docs.python.org/3/library/asyncio.html)，理解异步任务、并发、取消和超时。
 3. 读 [Python Packaging User Guide](https://packaging.python.org/en/latest/tutorials/packaging-projects/)，理解 `pyproject.toml`、包结构和依赖管理。
-4. 用一个小 RAG 项目练习 loader、chunk、embedding、retrieval、citation 和 eval。
+4. 用 [uv](https://docs.astral.sh/uv/) 建一个小 RAG 项目，练习安装依赖、运行测试、锁定版本和执行评测脚本。
+5. 如果项目涉及 CUDA、PyTorch、OpenCV 或 FAISS，再学习 [conda environments](https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html)，理解 `environment.yml` 如何描述研究环境。
 
 ## 延伸阅读
 
@@ -155,4 +228,6 @@ Python 在 Agent 里最有价值的部分通常不是“写聊天页面”，而
 - [asyncio](https://docs.python.org/3/library/asyncio.html)
 - [typing](https://docs.python.org/3/library/typing.html)
 - [Python Packaging User Guide](https://packaging.python.org/en/latest/tutorials/packaging-projects/)
+- [uv documentation](https://docs.astral.sh/uv/)
+- [conda: Managing environments](https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html)
 - [pytest](https://docs.pytest.org/)
